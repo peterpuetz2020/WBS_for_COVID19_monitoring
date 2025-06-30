@@ -27,27 +27,22 @@ pacman::p_load(
   "visdat",
   "zoo",
   "kableExtra",
+  "xtable",
   "MLmetrics",
   "glmnet",
-  "xgboost",
   "kernlab",
   "caret",
   "ps",
   "rlang",
   "ranger",
   "ggplotify",
-  "extrafont",
-  "xtable"
+  "extrafont"
 )
+
 # do only once, only necessary for nice plots, but code runs also
 # without executing this command
 # font_import(prompt = FALSE)
 loadfonts(device = "win")
-
-# define paths where to store results and where to load the data from
-results_here_tables <- here(here(), "output/tables")
-results_here_plots <- here(here(), "output/plots")
-data_here <- here(here(), "data")
 
 # change the months on the x-axis to english months
 Sys.setlocale("LC_TIME", "C")
@@ -76,10 +71,10 @@ theme_trend <- function(base_size = 12,
 
 # set untidy names as given in dataset
 ugly_names <- c("gw_sr",
-"gw_vpr",
-"viruslast",
-"seed_covidare",
-"inzidenz_7_tage")
+                "gw_vpr",
+                "viruslast",
+                "seed_covidare",
+                "inzidenz_7_tage")
 
 # set tidy names
 neat_names_no_ww <- c("GNS-I", "GW-SR-I", "GW-VPR-I", "SEED-COVID-ARI-I")
@@ -217,36 +212,7 @@ block_cv <- function(data, n_splits, avoid_overlap = 0) {
   return(final_list)
 }
 
-# prediction measures. ta: input table.
-pred_measures <- function(ta = NULL) {
-  # the diagonal contains correct predictions / agreements
-  hits <- sum(diag(ta))
-  # overall accuracy = correct predictions / all observations
-  overall_acc = hits / sum(ta)
-  # sensitivity and positive predictive value for decreases
-  decr_sens = diag(ta)["decreasing"] /
-    sum(ta[c("decreasing"), ])
-  decr_ppv = diag(ta)["decreasing"] /
-    sum(ta[, c("decreasing")])
-  # sensitivity and positive predictive value for increases
-  incr_sens = diag(ta)["increasing"] /
-    sum(ta[c("increasing"), ])
-  incr_ppv = diag(ta)["increasing"] /
-    sum(ta[, c("increasing")])
-  # return results
-  return(
-    data.frame(
-      overall_acc,
-      decr_sens,
-      decr_ppv,
-      incr_sens,
-      incr_ppv,
-      row.names = ""
-    ) %>% t() %>% round(2)
-  )
-}
-
-# function to filter data and select variables. df: input data, 
+# function to filter data and select variables. df: input data,
 # starting_date: starting date of analysis, same_time_frame: drops rows with at
 # least one NA, interpolate: should time series be interpolated to obtain daily data
 filtering_and_selecting <- function(df = NULL,
@@ -275,9 +241,9 @@ filtering_and_selecting <- function(df = NULL,
     df
 }
 
-# function to generate the data with week-to-weeks changes. Also, input 
+# function to generate the data with week-to-weeks changes. Also, input
 # variables (features) for the machine learning task are generated.
-# df: input data, perc_change_threshold: how much percentage points increase/decrease 
+# df: input data, perc_change_threshold: how much percentage points increase/decrease
 # required for categorization of week-to-week changes?
 prepare_trend_data <- function(df = NULL,
                                perc_change_threshold = 0.05) {
@@ -362,124 +328,124 @@ prepare_trend_data <- function(df = NULL,
 plot_cc_pearson <- function(df = NULL,
                             changes = FALSE,
                             range = 4,
-                            data_type = c("original_data",
-                                          "interpolated_data",
-                                          "derived_prev_data",
-                                          "smoothed_data")) {
+                            data_type = c("original_data", "derived_prev_data", "smoothed_data")) {
   # if smoothed data should be used, select the corresponding columns and rename them
   if (data_type == "smoothed_data")
+  {
     df <- df %>%
       select(kalenderwoche, contains("loess")) %>%
-      rename_with(~ gsub("_loess", "", .))
-  
-  # select only one value per week to ensure weekly lag calculation
-  df <-  df %>%
-    filter(kalenderwoche == min(kalenderwoche) |
-             as.numeric((kalenderwoche - min(kalenderwoche))) %% 7 == 0)
-  
-  # select only numeric variables, i.e. the indicators
-  df_num <- df %>%
-    select_if(is.numeric) %>%
-    # sort alphabetically
-    select(order(names(.)))
-  
-  # should first differences be calculated
-  if (changes)
-  {
-    df_num <- df_num %>%
-      # compute changes
-      mutate_all(~ . / lag(.)) %>%
-      # Drop rows where all values are NA
-      filter(!if_all(everything(), is.na))
-    # set name for saving file below
-    fd = "changes"
-  } else
-  {
-    fd = ""
+      rename_with( ~ gsub("_loess", "", .))
   }
   
-  # rename variable names
-  df_num <- df_num %>%
-    rename_neat()
-  
-  # extract the new variable names
-  varnames_neat <- df_num %>%
-    colnames()
-  
-  # List of series to compare with with wastewater viral load
-  series_to_compare <- varnames_neat[varnames_neat != "WW-VL"]
-  
-  # Function to compute cross-correlation with wastewater viral load that returns a data frame
-  compute_ccf <- function(series_name) {
-    ccf_result <- ccf(df_num[, "WW-VL"], df_num[[series_name]], plot = FALSE, na.action = na.pass)
-    
-    # Create a data frame with lags, correlations and series which is correlated with wastewater
-    data.frame(lag = ccf_result$lag,
-               correlation = ccf_result$acf,
-               series = series_name) %>%
-      # arrange by series name
-      arrange(series)
-  }
-  
-  # Compute cross-correlations for all series and bind results into one data frame
-  ccf_results <- map_dfr(series_to_compare, compute_ccf)
-  # show only a certain number weeks / days (set as function input)
-  ccf_results <- ccf_results %>%
-    filter(between(lag, -range, range))
-  
-  # Identify the maximum correlation and corresponding lag for each series
-  max_ccf <- ccf_results %>%
-    group_by(series) %>%
-    dplyr::slice(which.max(correlation)) %>%
-    ungroup()
-  
-  # extract the correlation values
-  y_vals_in_range <- ccf_results %>%
-    pull(correlation)
-  
-  # extract the lags
-  valid_lags <- ccf_results %>% pull(lag)
-  
-  # rounding functions such that unpretty values on the y-axis are avoided
-  round_down <- function(x, base = 0.2)
-    base * floor(x / base)
-  round_up <- function(x, base = 0.2)
-    base * ceiling(x / base)
-  y_min_valid <- round_down(min(y_vals_in_range) - 0.05)
-  y_max_valid <- round_up(ceiling(max(y_vals_in_range)))
-  
-  # Create a bar plot of cross-correlations
-  cor_plot <- ggplot(ccf_results, aes(x = factor(lag), y = correlation, fill = series)) +
-    geom_bar(stat = "identity", position = "dodge") +
-    labs(x = "Lag in weeks", y = "Cross-Correlation") +
-    theme_trend() +
-    scale_x_discrete(breaks = levels(factor(ccf_results$lag))[seq(1, length(levels(factor(ccf_results$lag))), by = 1)]) +
-    facet_wrap(~ series, ncol = 2, scales = "fixed") +
-    add_color_manual_neat_names_no_ww() +
-    geom_text(
-      data = max_ccf,
-      aes(label = round(correlation, 2), y = correlation + 0.1),
-      size = 4.2175,
-      color = "black",
-      family = "Times New Roman"
-    ) +
-    scale_y_continuous(
-      breaks = seq(y_min_valid, y_max_valid, by = 0.2),
-      expand = c(0.025, 0.035)
-    )
-  print(cor_plot)
-  
-  # save plot
-  ggsave(
-    here(
-      results_here_plots,
-      paste0("cross_correlations_", data_type, "_", fd, ".svg")
-    ),
-    width = 16,
-    height = 10,
-    units = "cm"
-  )
-  
+  # set name of file that will be stored below
+  if (data_type == "smoothed_data")
+    figure_name <- "figure_8"
+  else
+    if (data_type == "original_data")
+      figure_name <- "figure_2"
+    else
+      if (data_type == "derived_prev_data")
+        figure_name <- "figure_A4"
+      
+      # select only one value per week to ensure weekly lag calculation
+      df <-  df %>%
+        filter(kalenderwoche == min(kalenderwoche) |
+                 as.numeric((kalenderwoche - min(kalenderwoche))) %% 7 == 0)
+      
+      # select only numeric variables, i.e. the indicators
+      df_num <- df %>%
+        select_if(is.numeric) %>%
+        # sort alphabetically
+        select(order(names(.)))
+      
+      # should first differences be calculated
+      if (changes)
+      {
+        df_num <- df_num %>%
+          # compute changes
+          mutate_all( ~ . / lag(.)) %>%
+          # Drop rows where all values are NA
+          filter(!if_all(everything(), is.na))
+      }
+      
+      # rename variable names
+      df_num <- df_num %>%
+        rename_neat()
+      
+      # extract the new variable names
+      varnames_neat <- df_num %>%
+        colnames()
+      
+      # List of series to compare with with wastewater viral load
+      series_to_compare <- varnames_neat[varnames_neat != "WW-VL"]
+      
+      # Function to compute cross-correlation with wastewater viral load that returns a data frame
+      compute_ccf <- function(series_name) {
+        ccf_result <- ccf(df_num[, "WW-VL"], df_num[[series_name]], plot = FALSE, na.action = na.pass)
+        
+        # Create a data frame with lags, correlations and series which is correlated with wastewater
+        data.frame(lag = ccf_result$lag,
+                   correlation = ccf_result$acf,
+                   series = series_name) %>%
+          # arrange by series name
+          arrange(series)
+      }
+      
+      # Compute cross-correlations for all series and bind results into one data frame
+      ccf_results <- map_dfr(series_to_compare, compute_ccf)
+      # show only a certain number weeks / days (set as function input)
+      ccf_results <- ccf_results %>%
+        filter(between(lag, -range, range))
+      
+      # Identify the maximum correlation and corresponding lag for each series
+      max_ccf <- ccf_results %>%
+        group_by(series) %>%
+        dplyr::slice(which.max(correlation)) %>%
+        ungroup()
+      
+      # extract the correlation values
+      y_vals_in_range <- ccf_results %>%
+        pull(correlation)
+      
+      # extract the lags
+      valid_lags <- ccf_results %>% pull(lag)
+      
+      # rounding functions such that unpretty values on the y-axis are avoided
+      round_down <- function(x, base = 0.2)
+        base * floor(x / base)
+      round_up <- function(x, base = 0.2)
+        base * ceiling(x / base)
+      y_min_valid <- round_down(min(y_vals_in_range) - 0.05)
+      y_max_valid <- round_up(ceiling(max(y_vals_in_range)))
+      
+      # Create a bar plot of cross-correlations
+      cor_plot <- ggplot(ccf_results, aes(x = factor(lag), y = correlation, fill = series)) +
+        geom_bar(stat = "identity", position = "dodge") +
+        labs(x = "Lag in weeks", y = "Cross-Correlation") +
+        theme_trend() +
+        scale_x_discrete(breaks = levels(factor(ccf_results$lag))[seq(1, length(levels(factor(ccf_results$lag))), by = 1)]) +
+        facet_wrap( ~ series, ncol = 2, scales = "fixed") +
+        add_color_manual_neat_names_no_ww() +
+        geom_text(
+          data = max_ccf,
+          aes(label = round(correlation, 2), y = correlation + 0.1),
+          size = 4.2175,
+          color = "black",
+          family = "Times New Roman"
+        ) +
+        scale_y_continuous(
+          breaks = seq(y_min_valid, y_max_valid, by = 0.2),
+          expand = c(0.025, 0.035)
+        )
+      print(cor_plot)
+      
+      # save plot
+      ggsave(
+        here(results_here_plots, paste0(figure_name, ".svg")),
+        width = 16,
+        height = 10,
+        units = "cm"
+      )
 }
 
 # function to compute shedding load distribution
@@ -561,7 +527,7 @@ plot_sld <- function(df = NULL) {
   
   #save plot
   ggsave(
-    here(results_here_plots, "sld.svg"),
+    here(results_here_plots, "figure_3.svg"),
     width = 16,
     height = 10,
     units = "cm"
@@ -640,11 +606,24 @@ plot_der_prevalence <- function(df = NULL)
       labs(y =  "Standardized value")
     print(p)
     
+    # set figure name
+    if (var_name == "GNS-I")
+      figure_name <- "A1"
+    else
+      if (var_name == "GW-SR-I")
+        figure_name <- "4"
+    else
+      if (var_name == "GW-VPR-I")
+        figure_name <- "A2"
+    else
+      if (var_name == "SEED-COVID-ARI-I")
+        figure_name <- "A3"
+    
     # save plot
     ggsave(
       here(
         results_here_plots,
-        paste0(var_name, "_incidence_derived_viral_load.svg")
+        paste0("figure_", figure_name, ".svg")
       ),
       width = 16,
       height = 10,
@@ -664,49 +643,51 @@ prepare_translation_factor_data <- function(df = NULL,
     # add days between weekly measurements
     pad(interval = "day") %>%
     # create new time variables and an index variable
-    mutate(woche = week(kalenderwoche),
-           jahr = year(kalenderwoche),
-      obs = row_number())
-
-    df <- df %>%
-      # log-transform data
-      mutate(
-        across(all_of(
-          c(
-            "gw_sr",
-            "gw_vpr",
-            "viruslast",
-            "seed_covidare",
-            "inzidenz_7_tage"
-          )
-        ), ~ log10(.)),
-        # compute gam smoothing
-        across(all_of(
-          c(
-            "gw_sr",
-            "gw_vpr",
-            "viruslast",
-            "seed_covidare",
-            "inzidenz_7_tage"
-          )
-        ), ~ {
-          model <- gam(as.formula(paste(
-            cur_column(), "~ s(obs,
+    mutate(
+      woche = week(kalenderwoche),
+      jahr = year(kalenderwoche),
+      obs = row_number()
+    )
+  
+  df <- df %>%
+    # log-transform data
+    mutate(
+      across(all_of(
+        c(
+          "gw_sr",
+          "gw_vpr",
+          "viruslast",
+          "seed_covidare",
+          "inzidenz_7_tage"
+        )
+      ), ~ log10(.)),
+      # compute gam smoothing
+      across(all_of(
+        c(
+          "gw_sr",
+          "gw_vpr",
+          "viruslast",
+          "seed_covidare",
+          "inzidenz_7_tage"
+        )
+      ), ~ {
+        model <- gam(as.formula(paste(
+          cur_column(), "~ s(obs,
                                                                bs = 'ad', k = 60)"
-          )))
-          10 ^ predict(model, newdata = data.frame(obs = df$obs))
-        }, .names = "{col}_loess"),
-        # backtransform to original scale
-        across(all_of(
-          c(
-            "gw_sr",
-            "gw_vpr",
-            "viruslast",
-            "seed_covidare",
-            "inzidenz_7_tage"
-          )
-        ), ~ 10 ^ (.))
-      )
+        )))
+        10 ^ predict(model, newdata = data.frame(obs = df$obs))
+      }, .names = "{col}_loess"),
+      # backtransform to original scale
+      across(all_of(
+        c(
+          "gw_sr",
+          "gw_vpr",
+          "viruslast",
+          "seed_covidare",
+          "inzidenz_7_tage"
+        )
+      ), ~ 10 ^ (.))
+    )
   
   df <- df %>%
     # avoid negative values
@@ -791,7 +772,7 @@ create_regression_graph <- function(df = NULL) {
     geom_smooth(se = F,
                 formula = y ~ x + 0,
                 method = "lm")  +
-    facet_wrap(~ system) +
+    facet_wrap( ~ system) +
     scale_color_manual(values = colors_used_neat_names[neat_names_no_ww]) +
     labs(x = "SARS-CoV-2 viral load in wastewater\nin 10,000 gene copies per liter", y = "COVID-19 cases\n per 100,000 inhabitants") +
     theme_trend() +
@@ -834,7 +815,7 @@ create_regression_graph <- function(df = NULL) {
   # save plot
   ggsave(
     plot = p,
-    here(results_here_plots, paste0("regression_curves.svg")),
+    here(results_here_plots, paste0("figure_6.svg")),
     width = 16,
     height = 10,
     units = "cm"
@@ -844,7 +825,6 @@ create_regression_graph <- function(df = NULL) {
 # function to plot time series together in one plot
 # df: input data
 plot_indicators <- function(df = NULL) {
-  
   # divide ww viral laod by 10000 for nicer graphic
   scaling_factor = 10000
   df <-
@@ -864,7 +844,11 @@ plot_indicators <- function(df = NULL) {
   # reshape data
   plot_data <-
     df %>%
-    dplyr::select(-contains("UEF"),-gw_sr,-gw_vpr ,-seed_covidare,-viruslast) %>%
+    dplyr::select(-contains("UEF"),
+                  -gw_sr,
+                  -gw_vpr ,
+                  -seed_covidare,
+                  -viruslast) %>%
     gather(criterion, value, -jahr, -woche, -kalenderwoche)
   
   # generate plot
@@ -872,7 +856,7 @@ plot_indicators <- function(df = NULL) {
     ggplot() +
     scale_y_continuous(
       expand = c(0.02, 0),
-      sec.axis = sec_axis(~ . * beta + alpha, name = "SARS-CoV-2 viral load in wastewater\nin 10,000 gene copies per liter")
+      sec.axis = sec_axis( ~ . * beta + alpha, name = "SARS-CoV-2 viral load in wastewater\nin 10,000 gene copies per liter")
     ) +
     theme_trend() +
     scale_x_date(
@@ -905,10 +889,7 @@ plot_indicators <- function(df = NULL) {
   # save plot
   ggsave(
     plot = plot_1,
-    here(
-      results_here_plots,
-      paste0("figure_1.svg")
-    ),
+    here(results_here_plots, paste0("figure_1.svg")),
     width = 16,
     height = 10,
     units = "cm"
@@ -918,10 +899,9 @@ plot_indicators <- function(df = NULL) {
 # function to plot changes of smoothes time series together in one plot
 # df: input data
 plot_changes <- function(df = NULL) {
-  
   # make variable names tidy
   df <-
-    df %>% 
+    df %>%
     rename_neat()
   
   plot_ch <- df %>%
@@ -930,7 +910,7 @@ plot_changes <- function(df = NULL) {
     # select relevant variables
     select(contains("loess"), kalenderwoche) %>%
     # rename variables
-    rename_with(~ str_replace(., "_loess", ""), contains("_loess")) %>%
+    rename_with( ~ str_replace(., "_loess", ""), contains("_loess")) %>%
     # reshape data
     gather(Indicator, FD, -kalenderwoche) %>%
     # drop NAs
@@ -953,10 +933,7 @@ plot_changes <- function(df = NULL) {
   # save plot
   ggsave(
     plot = plot_ch,
-    here(
-      results_here_plots,
-      "figure_7.svg"
-    ),
+    here(results_here_plots, "figure_7.svg"),
     width = 16,
     height = 10,
     units = "cm"
@@ -966,101 +943,97 @@ plot_changes <- function(df = NULL) {
 
 # df: input data
 create_translation_factor_graph <- function(df = NULL) {
-  
   # set scaling factor for nicer graphic
   scaling_factor = 10000
   
-    plot_data <-
-      df %>%
-      # select relevant variables
-      dplyr::select(jahr, woche, contains("UEF"), kalenderwoche) %>%
-      # reshape and scale data
-      gather(criterion, UEF, -jahr, -woche, -kalenderwoche) %>%
-     #  divide ww viral laod by 10000 / multiply UEF by 10000 for nicer graphic
-      mutate(UEF=UEF*scaling_factor)
-    
-    # generate translation factor plot for all indicators
-    plot_all <- plot_data %>%
-      ggplot() +
-      geom_line(
-        aes(kalenderwoche, UEF, color = criterion),
-        linewidth = 1.0,
-        data = plot_data %>% filter(
-          criterion %in%
-            c(
-              "UEF_WW_GW_VPR_SM",
-              "UEF_WW_inzidenz_7_tage_SM",
-              "UEF_WW_GW_SR_SM",
-              "UEF_WW_COVARE_SM"
-            )
-        )
-      ) +
-      scale_x_date(
-        date_breaks = "4 month",
-        date_labels = "%b\n%y",
-        expand = c(0, 0)
-      ) +
-      theme_trend() +
-      add_color_manual_uef() +
-      theme(legend.position = "bottom") + 
-      labs(x = "Date", y = "Translation factor") +
-      scale_y_continuous(
-        trans = 'log10',
-        expand = c(0.02, 0),
-        labels = ~ format(.x, scientific = FALSE))
-
-    # do the same only for GW-SR_I
-    plot_gw_sr <- plot_data %>% filter(criterion ==
-                                          "UEF_WW_GW_SR_SM") %>%
-      ggplot() +
-      geom_line(aes(kalenderwoche, UEF),
-                color = colors_used_ugly_names["gw_sr"],
-                linewidth = 1.0,
-      )  +
-      scale_x_date(
-        date_breaks = "4 month",
-        date_labels = "%b\n%y",
-        expand = c(0, 0)
-      ) +
-      theme_trend() +
-      labs(x = "Date", y = "Translation factor") +
-      scale_y_continuous(trans = 'log10', expand = c(0.02, 0))
-    
-    legend <- ggpubr::get_legend(plot_all)
-    legend <- as.ggplot(legend)
-    plot_all <- plot_all + theme(legend.position = "none") +
-      theme(axis.title.y = element_text(margin = margin(r = 20)))
-    plot_gw_sr <- plot_gw_sr +
-      theme(axis.title.y = element_text(margin = margin(r = 20)))
-    
-    # combine plots
-    combined_plots <- plot_grid(plot_all, plot_gw_sr, ncol = 2, align = "hv")
-    
-    # add legend
-    final_plot <- plot_grid(combined_plots,
-                            legend,
-                            ncol = 1,
-                            rel_heights = c(1, 0.1))
-    
-    print(final_plot)
-    
-    # save plot
-    ggsave(
-      plot =  final_plot,
-      here(
-        results_here_plots,
-        "figure_5.svg"),
-      width = 16,
-      height = 10,
-      units = "cm"
+  plot_data <-
+    df %>%
+    # select relevant variables
+    dplyr::select(jahr, woche, contains("UEF"), kalenderwoche) %>%
+    # reshape and scale data
+    gather(criterion, UEF, -jahr, -woche, -kalenderwoche) %>%
+    #  divide ww viral laod by 10000 / multiply UEF by 10000 for nicer graphic
+    mutate(UEF = UEF * scaling_factor)
+  
+  # generate translation factor plot for all indicators
+  plot_all <- plot_data %>%
+    ggplot() +
+    geom_line(
+      aes(kalenderwoche, UEF, color = criterion),
+      linewidth = 1.0,
+      data = plot_data %>% filter(
+        criterion %in%
+          c(
+            "UEF_WW_GW_VPR_SM",
+            "UEF_WW_inzidenz_7_tage_SM",
+            "UEF_WW_GW_SR_SM",
+            "UEF_WW_COVARE_SM"
+          )
+      )
+    ) +
+    scale_x_date(
+      date_breaks = "4 month",
+      date_labels = "%b\n%y",
+      expand = c(0, 0)
+    ) +
+    theme_trend() +
+    add_color_manual_uef() +
+    theme(legend.position = "bottom") +
+    labs(x = "Date", y = "Translation factor") +
+    scale_y_continuous(
+      trans = 'log10',
+      expand = c(0.02, 0),
+      labels = ~ format(.x, scientific = FALSE)
     )
+  
+  # do the same only for GW-SR_I
+  plot_gw_sr <- plot_data %>% filter(criterion ==
+                                       "UEF_WW_GW_SR_SM") %>%
+    ggplot() +
+    geom_line(aes(kalenderwoche, UEF),
+              color = colors_used_ugly_names["gw_sr"],
+              linewidth = 1.0,)  +
+    scale_x_date(
+      date_breaks = "4 month",
+      date_labels = "%b\n%y",
+      expand = c(0, 0)
+    ) +
+    theme_trend() +
+    labs(x = "Date", y = "Translation factor") +
+    scale_y_continuous(trans = 'log10', expand = c(0.02, 0))
+  
+  legend <- ggpubr::get_legend(plot_all)
+  legend <- as.ggplot(legend)
+  plot_all <- plot_all + theme(legend.position = "none") +
+    theme(axis.title.y = element_text(margin = margin(r = 20)))
+  plot_gw_sr <- plot_gw_sr +
+    theme(axis.title.y = element_text(margin = margin(r = 20)))
+  
+  # combine plots
+  combined_plots <- plot_grid(plot_all, plot_gw_sr, ncol = 2, align = "hv")
+  
+  # add legend
+  final_plot <- plot_grid(combined_plots,
+                          legend,
+                          ncol = 1,
+                          rel_heights = c(1, 0.1))
+  
+  print(final_plot)
+  
+  # save plot
+  ggsave(
+    plot =  final_plot,
+    here(results_here_plots, "figure_5.svg"),
+    width = 16,
+    height = 10,
+    units = "cm"
+  )
 }
 
-# function to plot correspondence over time between viral load and case-based systems 
+# function to plot correspondence over time between viral load and case-based systems
 # df: input data, comparison_var: variable to plot over time
 plot_correspondence_over_time <- function(df = NULL,
                                           comparison_var = "viruslast_loess") {
-  
   # indicate when comparison variable agrees with category indicated by majority
   # of case-based surveillance systems
   df <- df %>%
@@ -1118,21 +1091,48 @@ plot_correspondence_over_time <- function(df = NULL,
   # save plot
   ggsave(
     plot = p,
-    here(
-      results_here_plots,
-      "figure_9.svg")
-    ),
+    here(results_here_plots, "figure_9.svg"),
     width = 16,
     height = 10,
     units = "cm"
   )
 }
 
+# function to calculate prediction measures.
+# ta: input contingency table.
+pred_measures <- function(ta = NULL) {
+  # the diagonal contains correct predictions / agreements
+  hits <- sum(diag(ta))
+  # overall accuracy = correct predictions / all observations
+  overall_acc = hits / sum(ta)
+  # sensitivity and positive predictive value for decreases
+  decr_sens = diag(ta)["decreasing"] /
+    sum(ta[c("decreasing"), ])
+  decr_ppv = diag(ta)["decreasing"] /
+    sum(ta[, c("decreasing")])
+  # sensitivity and positive predictive value for increases
+  incr_sens = diag(ta)["increasing"] /
+    sum(ta[c("increasing"), ])
+  incr_ppv = diag(ta)["increasing"] /
+    sum(ta[, c("increasing")])
+  # return results
+  return(
+    data.frame(
+      overall_acc,
+      decr_sens,
+      decr_ppv,
+      incr_sens,
+      incr_ppv,
+      row.names = ""
+    ) %>% t() %>% round(2)
+  )
+}
 
-
-
-save_confusion_matrix <- function(df = NULL,
-                                  name = c("retrospective", "realtime", "prediction")) {
+# function to save confusion matrix for a given contingency table
+# df: input contingency table
+# name: name of output file
+save_confusion_matrix <- function(df = NULL, name = NULL) {
+  # calculate prediction measures
   measures <- pred_measures(df)
   # Define a function to replace certain words
   replace_words <- function(words) {
@@ -1156,26 +1156,25 @@ save_confusion_matrix <- function(df = NULL,
   dimnames(df) <- lapply(dimnames(df), replace_words)
   # Convert to data frame for labeling
   tab_df <- as.data.frame.matrix(df)
+  # add row names as an extra column
   tab_df <- cbind(XXX = rownames(tab_df), tab_df)
+  # remove initial rownames
   rownames(tab_df) <- NULL
+  # make nice latex table
   latex_conf_matrix <- kable(tab_df,
                              format = "latex",
                              booktabs = TRUE,
                              align = "lrrr") %>%
     add_header_above(c(" " = 1, "YYY" = 3)) %>%
     kable_styling(latex_options = c("hold_position"))
-  # latex_conf_matrix <- xtable(df,
-  #                             caption = paste0("Confusion matrix: ", name),
-  #                             label = paste0("tab:confusion_matrix_", name))
-  sink(here(
-    results_here_tables,
-    paste0("contingency_table_", name, ".tex")
-  ))
+  
+  # save table
+  sink(here(results_here_tables, paste0(name, "_part_1", ".tex")))
   print(latex_conf_matrix,
         type = "latex",
         include.rownames = TRUE)
   sink()
-  
+  # add prediction measures below
   summary_stats <- data.frame(
     Metric = c(
       "Accuracy",
@@ -1194,66 +1193,70 @@ save_confusion_matrix <- function(df = NULL,
   )
   colnames(summary_stats) <- c("", "")
   latex_sum_stats <- xtable(summary_stats, include.rownames = FALSE)
-  sink(here(results_here_tables, paste0("summary_stats_", name, ".tex")))
+  sink(here(results_here_tables, paste0(name, "_part_2", ".tex")))
   print(latex_sum_stats,
         type = "latex",
         include.rownames = FALSE)
   sink()
 }
 
-# Calculate outer fold metric
-calculate_outer_metric <- function(preds, true_labels, metric_used) {
-  if (metric_used == "Accuracy") {
-    return(mean(preds == true_labels))
-  } else if (metric_used == "Kappa") {
-    return(confusionMatrix(preds, true_labels)$overall["Kappa"])
-  } else {
-    stop(paste("Metric", metric_used, "not implemented for outer fold."))
-  }
+# function to calculate outer loop accuracy
+# preds: predicted values, true_labels: observed values
+calculate_outer_metric <- function(preds, true_labels) {
+  return(mean(preds == true_labels))
 }
 
+# function to calculate ML models results
+# df: input data, form: formula used for the ML algorithms,
+# outer_folds: no. of folds for outer loop,
+# inner_folds: no. of folds for innter loop,
+# tuneLength:  amount of granularity in the tuning parameter grid for Ml algorithms,
+# avoid_overlap: no. of last values dropped from validation / test sets
+# to avoid overlap with training sets,
+# seed: seed for replicability
 compute_ml_models <- function(df = NULL,
                               form = NULL,
-                              models = c("multinom", "svm", "rf"),
-                              # outer repetitions/ folds
-                              outer_folds = 30,
-                              # inner folds
+                              outer_folds = 10,
                               inner_folds = 10,
                               tuneLength = 10,
-                              # metric for optimization
-                              metric_used = c("Accuracy", "Kappa"),
-                              # drop last values from outer loop test
-                              # sets to avoid overlap with inner loop training sets
                               avoid_overlap = 0,
                               seed = 22) {
+  # set model names
+  models = c("multinom", "svm", "rf")
+  # set seed
   set.seed(seed)
-  # store true target
+  # store true target values
   true_y <- df %>% pull(as.character(form)[2])
-  # only name
+  # store true target variable name
   target <- as.character(form)[2]
+  # store number of rows of dataset
   n_rows = nrow(df)
-  # nested cv to use unseen training data for model generalizability
-  # use outer cv for evaluation and inner cv for hyperparameter tuning
   
-  # list/container for the models
+  # nested cross-validation
+  # use outer cv for estimation of generalization error
+  # and inner cv for hyperparameter tuning and model selection
+  # list/container for the outer and inner loop results
   outer_results <- list()
   inner_results <- list()
+  # container for the final predictions made by the algorithms
   predictions_results <- list()
   
-  # models vector initialization
+  # set correct data type for the containers
   for (mod in models) {
     outer_results[[mod]] <- data.frame()
     inner_results[[mod]] <- c()
     predictions_results[[mod]] <- factor(c(), levels = levels(true_y))
   }
+  
   # Perform outer cross-validation
   for (i in 1:outer_folds) {
+    # print current loop number to follow progress of the computation
     print("outer fold: ")
     print(i)
     # Create indices for the outer fold
     start_index <- ceiling(n_rows * (i - 1) / outer_folds) + 1
     end_index <- ceiling(n_rows * (i) / outer_folds)
-    #outer_indices <- createDataPartition(true_y, p = 0.9, list = FALSE)
+    # Create tte corresponding training and test set while avoiding potential overlap
     test_outer <- df[start_index:end_index, ]
     train_outer <- df[-(max(c(1, start_index - avoid_overlap)):min(c(end_index +
                                                                        avoid_overlap), n_rows)), ]
@@ -1267,38 +1270,43 @@ compute_ml_models <- function(df = NULL,
       indexOut = block[['validation']],
       summaryFunction = multiClassSummary
     )
-    # Perform inner cross-validation for hyperparameter tuning
+    # Perform inner cross-validation for Lasso regression
     model_multinom <- train(
       form,
       data =  train_outer,
       method = "glmnet",
       preProcess = c("center", "scale"),
       trControl = inner_control,
-      metric = metric_used,
+      metric = "Accuracy",
       tuneGrid = expand.grid(alpha = 1, lambda = seq(0, 0.3, by = 0.0005)),
       verbose = F
     )
-    #print("best model coefficients:")
-    #print(coef(model_multinom$finalModel, s = model_multinom$bestTune$lambda))
-    print(paste0("best lambda: ", model_multinom$bestTune$lambda))
+    # output supervision
+    print("best lambda for Lasso:")
+    print(model_multinom$bestTune$lambda)
+    
+    # Perform inner cross-validation for SVM
     model_svm <- train(
       form,
       data =  train_outer,
       method = "svmRadial",
-      metric = metric_used,
+      metric = "Accuracy",
       preProcess = c("center", "scale"),
       trControl = inner_control,
       tuneLength = tuneLength,
       verbose = F
     )
-    # print("best parameters for SVM:")
-    # print(model_svm$bestTune)
+    # output supervision
+    print("best parameters for SVM:")
+    print(model_svm$bestTune)
+    
+    # Perform inner cross-validation for Random Forest
     model_rf <- train(
       form,
       data =  train_outer,
       method = "ranger",
       trControl = inner_control,
-      metric = metric_used,
+      metric = "Accuracy",
       preProcess = c("center", "scale"),
       tuneGrid = expand.grid(
         mtry = c(1, 2, 3, 4, 5),
@@ -1307,21 +1315,24 @@ compute_ml_models <- function(df = NULL,
       ),
       verbose = F
     )
-    # print("best parameters for RF:")
+    # output supervision
+    print("best parameters for RF:")
     print(model_rf$bestTune)
-    # Store inner CV results
-    inner_results[["multinom"]][i] <- max(model_multinom$results[[metric_used]])
-    inner_results[["svm"]][i] <- max(model_svm$results[[metric_used]])
-    inner_results[["rf"]][i] <- max(model_rf$results[[metric_used]])
+    
+    # Store best inner CV results
+    inner_results[["multinom"]][i] <- max(model_multinom$results[["Accuracy"]])
+    inner_results[["svm"]][i] <- max(model_svm$results[["Accuracy"]])
+    inner_results[["rf"]][i] <- max(model_rf$results[["Accuracy"]])
     
     # Outer test set predictions
     predictions_multinom <- predict(model_multinom, newdata = test_outer)
     predictions_svm <- predict(model_svm, newdata = test_outer)
     predictions_rf <- predict(model_rf, newdata = test_outer)
     
-    metric_multinom <- calculate_outer_metric(predictions_multinom, test_outer[[target]], metric_used)
-    metric_svm <- calculate_outer_metric(predictions_svm, test_outer[[target]], metric_used)
-    metric_rf <- calculate_outer_metric(predictions_rf, test_outer[[target]], metric_used)
+    # store outer test set accuracy
+    metric_multinom <- calculate_outer_metric(predictions_multinom, test_outer[[target]])
+    metric_svm <- calculate_outer_metric(predictions_svm, test_outer[[target]])
+    metric_rf <- calculate_outer_metric(predictions_rf, test_outer[[target]])
     
     # Store predictions
     predictions_results[["multinom"]] <- c(predictions_results[["multinom"]], predictions_multinom)
@@ -1335,7 +1346,7 @@ compute_ml_models <- function(df = NULL,
     outer_results[["rf"]] <- rbind(outer_results[["rf"]], data.frame(Fold = i, Metric = metric_rf))
     
   }
-  # inner results
+  # supervise inner results
   print("inner results: multinom")
   print(summary(inner_results[["multinom"]]))
   print("inner results: svm")
@@ -1343,14 +1354,7 @@ compute_ml_models <- function(df = NULL,
   print("inner results: rf")
   print(summary(inner_results[["rf"]]))
   
-  # outer results
-  print("outer results: multinom")
-  print(summary(outer_results[["multinom"]]$Metric))
-  print("outer results: svm")
-  print(summary(outer_results[["svm"]]$Metric))
-  print("outer results: rf")
-  print(summary(outer_results[["rf"]]$Metric))
-  
+  # store and return results
   results <- list(
     inner_results = inner_results,
     predictions_results = predictions_results,
@@ -1358,125 +1362,45 @@ compute_ml_models <- function(df = NULL,
     true_y = true_y
   )
   
+  return(results)
+}
+
+# function to save table for inner loop results from cross-validation
+# results: list of results data from machine learning computations
+save_inner_cv_results <- function(results = NULL) {
+  # access inner loop results from list
   tab <- results$inner_results %>%
     map_df(summary, .id = "model") %>%
-    mutate_if(is.numeric, ~ round(., 2))
-  tab %>%
-    write.table(here(
-      results_here_tables,
-      paste(
-        "inner_cv_results",
-        target,
-        outer_folds,
-        inner_folds,
-        avoid_overlap,
-        ".txt",
-        sep = "_"
+    mutate_if(is.numeric, ~ round(., 2)) %>%
+    # make algorithm names nicer
+    mutate(
+      model = case_when(
+        model == "multinom" ~ "LASSO",
+        model == "svm" ~ "Support Vector Machine",
+        model == "rf" ~ "Random Forest"
       )
-    ))
+    )
   
+  # save inner loop results in latex table
+  sink(here(results_here_tables, paste0("table_a3.tex")))
+  print(kable(tab, format = "latex", booktabs = TRUE))
+  sink()
+}
+
+# function to save table for outer loop results from best ML algorithm
+# (assessed regarding inner loop results)
+# results: list of results data from machine learning computations
+save_outer_cv_results <- function(results = NULL) {
+  # select best model by inner loop results
   best_mod <- results$inner_results %>%
     map_df(mean) %>%
     pivot_longer(everything(), names_to = "column", values_to = "value") %>%
     filter(value == max(value)) %>%
     pull(column)
+  
   # build confusion matrix for outer model
   conf_mat <- confusionMatrix(as.factor(results$true_y), results$predictions_results[[best_mod]])
-  # save results
-  save_confusion_matrix(
-    df = conf_mat$table,
-    name = paste(
-      "ml_model",
-      target,
-      outer_folds,
-      inner_folds,
-      avoid_overlap,
-      sep = "_"
-    )
-  )
   
-  return(results)
-}
-
-save_inner_cv_results <- function(results = NULL) {
-  tab <- results$inner_results %>%
-    map_df(summary, .id = "model") %>%
-    mutate_if(is.numeric, ~ round(., 2))
-  tab %>%
-    write.table(here(results_here_plots, "inner_cv_results.txt"))
-  print(flextable(tab))
-  sink(here(results_here_tables, paste0("inner_cv_results.tex")))
-  print(kable(tab, format = "latex", booktabs = TRUE))
-  sink()
-}
-
-compute_lasso_without_cv <- function(df = trend_data,
-                                     form = as.formula(
-                                       truth_compact ~ viruslast + viruslast_lag_1 +
-                                         viruslast_lag_2 + viruslast_ma_2 +
-                                         viruslast_ma_2_lag_1
-                                       + viruslast_ma_2_lag_2
-                                     ),
-                                     train_share = 0.65,
-                                     metric_used = "Accuracy") {
-  lambda <- seq(0, 0.1, length = 20)
-  
-  df_train <- df %>%
-    slice_head(n = round(train_share * nrow(df)))
-  
-  df_test <- df %>%
-    anti_join(df_train)
-  
-  results <- data.frame(mtry = NULL, RMSE = NULL)
-  
-  # Loop over hyperparameters manually
-  for (m in lambda) {
-    model <- train(
-      form,
-      df_train,
-      trControl = trainControl(method = "none"),
-      method = "glmnet",
-      tuneGrid = expand.grid(alpha = 1, lambda = m),
-      preProcess = c("center", "scale")
-    )
-    
-    # Predict on test set
-    preds <- predict(model, newdata = df_test)
-    
-    # Compute accuracy
-    confusionMatrix <- confusionMatrix(preds, df_test$truth_compact %>% as.factor())
-    accuracy <- confusionMatrix$overall['Accuracy']
-    
-    # Save
-    results <- rbind(results, data.frame(lambda = m, accuracy = accuracy))
-  }
-  
-  # Step 4: Select the best model based on accuracy
-  best_model_index <- which.max(results$accuracy)
-  best_lambda <- results$lambda[best_model_index]
-  best_accuracy <- results$accuracy[best_model_index]
-  
-  # Display the results
-  print("Results for different lambda values:")
-  print(paste(
-    "Best lambda:",
-    best_lambda,
-    "with accuracy:",
-    round(best_accuracy * 100, 2),
-    "%"
-  ))
-  return(results)
-}
-
-save_outer_cv_results <- function(results = NULL) {
-  # select best model by inner cv results
-  best_mod <- results$inner_results %>%
-    map_df(median) %>%
-    pivot_longer(everything(), names_to = "column", values_to = "value") %>%
-    filter(value == max(value)) %>%
-    pull(column)
-  # build confusion matrix for outer model
-  conf_mat <- confusionMatrix(as.factor(results$true_y), results$predictions_results[[best_mod]])
-  # save results
-  save_confusion_matrix(df = conf_mat$table, name = "ml_model")
+  # save results in latex table
+  save_confusion_matrix(df = conf_mat$table, name = "table_2")
 }
