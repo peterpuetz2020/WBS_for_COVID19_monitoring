@@ -7,6 +7,12 @@ if (!require("pacman"))
 # install (if not done yet) and load here package
 pacman::p_load(here)
 
+# install (if not done yet) and load renv package
+# pacman::p_load(renv)
+
+# restore project environment. works if you have same R version (4.4.1) installed.
+# renv::restore()
+
 # define paths where to store results and where to load the data from
 results_here_tables <- here(here(), "output/tables")
 results_here_plots <- here(here(), "output/plots")
