@@ -7,6 +7,7 @@ pacman::p_load(
   "officer",
   "lubridate",
   "tsibble",
+  "ggpubr",
   "here",
   "fable",
   "mgcv",
