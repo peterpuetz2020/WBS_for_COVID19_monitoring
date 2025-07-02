@@ -3,7 +3,7 @@ This repository allows to reproduce the results obtained in "Abunijela et al. (2
 
 ## Folders in this repository
 * `data`: This folder contains the datasets needed for the analyses. 
-* `R`: This folders contains the R scripts alled by `main.R` (located in the main directory) needed to replicate the results.
+* `R`: This folders contains the R scripts called by `main.R` (located in the main directory) needed to replicate the results.
 * `output`: This folder stores the figures and tables of the manuscript which can be reproduced by running `main.R`.
 * `renv`: This folder contains files to recreate the project environment and need not be called directly, see https://rstudio.github.io/renv/articles/renv.
 

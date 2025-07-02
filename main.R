@@ -1,14 +1,21 @@
 # clean workspace
 rm(list = ls())
 
-# in case not installed, install pacman package
-if (!require("pacman"))
-  install.packages("pacman")
+# Function to install and load packages
+install_and_load <- function(packages) {
+  for (pkg in packages) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      install.packages(pkg)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
+
 # install (if not done yet) and load here package
-pacman::p_load(here)
+install_and_load(here)
 
 # install (if not done yet) and load renv package
-# pacman::p_load(renv)
+# install_and_load(renv)
 
 # restore project environment. works if you have same R version (4.4.1) installed.
 # renv::restore()

@@ -1,8 +1,7 @@
-# Load all other packages
-pacman::p_load(
+# lnstall (if required ) and load all other packages
+packages_to_load <- c(
   "tidyverse",
   "janitor",
-  "skimr",
   "ISOweek",
   "officer",
   "lubridate",
@@ -39,6 +38,7 @@ pacman::p_load(
   "ggplotify",
   "extrafont"
 )
+install_and_load(packages_to_load)
 
 # do only once, only necessary for nice plots, but code runs also
 # without executing this command
