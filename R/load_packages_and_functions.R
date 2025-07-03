@@ -10,6 +10,7 @@ install_and_load <- function(packages) {
 
 # install (if necessary) and load packages
 packages_to_load <- c(
+  "rlang",
   "dplyr",
   "tidyr",
   "tibble",
@@ -30,7 +31,8 @@ packages_to_load <- c(
   "ranger",
   "ggplotify",
   "extrafont",
-  "ggplot2"
+  "ggplot2",
+  "kernlab"
 )
 install_and_load(packages_to_load)
 
