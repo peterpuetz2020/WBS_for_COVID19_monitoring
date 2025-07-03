@@ -1,3 +1,13 @@
+# Function to install and load packages
+install_and_load <- function(packages) {
+  for (pkg in packages) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      install.packages(pkg)
+    }
+    library(pkg, character.only = TRUE)
+  }
+}
+
 # lnstall (if required ) and load all other packages
 packages_to_load <- c(
   "tidyverse",
