@@ -10,6 +10,7 @@ install_and_load <- function(packages) {
 
 # install (if necessary) and load packages
 packages_to_load <- c(
+  "cli",
   "rlang",
   "dplyr",
   "tidyr",

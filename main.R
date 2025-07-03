@@ -5,7 +5,7 @@ rm(list = ls())
 install_and_load <- function(packages) {
   for (pkg in packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
-      install.packages(pkg)
+      install.packages(pkg, dependencies = TRUE)
     }
     library(pkg, character.only = TRUE)
   }
