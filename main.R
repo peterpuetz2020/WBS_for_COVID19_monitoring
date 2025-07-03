@@ -12,7 +12,8 @@ install_and_load <- function(packages) {
 }
 
 # install (if not done yet) and load renv package
-# install_and_load("renv")
+# install.packages("renv")
+# library(renv)
 
 # restore project environment. works if you have same R version (4.4.1) installed.
 # renv::restore()
