@@ -8,45 +8,29 @@ install_and_load <- function(packages) {
   }
 }
 
-# lnstall (if required ) and load all other packages
+# install (if necessary) and load packages
 packages_to_load <- c(
-  "tidyverse",
-  "janitor",
-  "ISOweek",
-  "officer",
+  "dplyr",
+  "tidyr",
+  "tibble",
   "lubridate",
-  "tsibble",
-  "ggpubr",
-  "here",
-  "fable",
+  "stringr",
   "mgcv",
-  "corrr",
   "rio",
-  "svglite",
-  "MMWRweek",
+  "purrr",
   "padr",
-  "fANCOVA",
   "cowplot",
-  "ggdag",
-  "GGally",
-  "gridExtra",
-  "sessioninfo",
-  "gt",
   "flextable",
   "matrixStats",
-  "visdat",
   "zoo",
   "kableExtra",
   "xtable",
-  "MLmetrics",
   "glmnet",
-  "kernlab",
   "caret",
-  "ps",
-  "rlang",
   "ranger",
   "ggplotify",
-  "extrafont"
+  "extrafont",
+  "ggplot2"
 )
 install_and_load(packages_to_load)
 
@@ -148,7 +132,6 @@ set_flextable_defaults(font.family = "Times New Roman",
 
 # change category definition: how much percentage points increase/decrease required?
 perc_change_threshold <- 0.05
-
 
 ## Setting up functions
 # function that changes untidy to tidy variable names. df: input data
@@ -345,7 +328,7 @@ plot_cc_pearson <- function(df = NULL,
   {
     df <- df %>%
       select(kalenderwoche, contains("loess")) %>%
-      rename_with( ~ gsub("_loess", "", .))
+      rename_with(~ gsub("_loess", "", .))
   }
   
   # set name of file that will be stored below
@@ -374,7 +357,7 @@ plot_cc_pearson <- function(df = NULL,
       {
         df_num <- df_num %>%
           # compute changes
-          mutate_all( ~ . / lag(.)) %>%
+          mutate_all(~ . / lag(.)) %>%
           # Drop rows where all values are NA
           filter(!if_all(everything(), is.na))
       }
@@ -435,7 +418,7 @@ plot_cc_pearson <- function(df = NULL,
         labs(x = "Lag in weeks", y = "Cross-Correlation") +
         theme_trend() +
         scale_x_discrete(breaks = levels(factor(ccf_results$lag))[seq(1, length(levels(factor(ccf_results$lag))), by = 1)]) +
-        facet_wrap( ~ series, ncol = 2, scales = "fixed") +
+        facet_wrap(~ series, ncol = 2, scales = "fixed") +
         add_color_manual_neat_names_no_ww() +
         geom_text(
           data = max_ccf,
@@ -783,7 +766,7 @@ create_regression_graph <- function(df = NULL) {
     geom_smooth(se = F,
                 formula = y ~ x + 0,
                 method = "lm")  +
-    facet_wrap( ~ system) +
+    facet_wrap(~ system) +
     scale_color_manual(values = colors_used_neat_names[neat_names_no_ww]) +
     labs(x = "SARS-CoV-2 viral load in wastewater\nin 10,000 gene copies per liter", y = "COVID-19 cases\n per 100,000 inhabitants") +
     theme_trend() +
@@ -855,11 +838,7 @@ plot_indicators <- function(df = NULL) {
   # reshape data
   plot_data <-
     df %>%
-    dplyr::select(-contains("UEF"),
-                  -gw_sr,
-                  -gw_vpr ,
-                  -seed_covidare,
-                  -viruslast) %>%
+    dplyr::select(-contains("UEF"),-gw_sr,-gw_vpr ,-seed_covidare,-viruslast) %>%
     gather(criterion, value, -jahr, -woche, -kalenderwoche)
   
   # generate plot
@@ -867,7 +846,7 @@ plot_indicators <- function(df = NULL) {
     ggplot() +
     scale_y_continuous(
       expand = c(0.02, 0),
-      sec.axis = sec_axis( ~ . * beta + alpha, name = "SARS-CoV-2 viral load in wastewater\nin 10,000 gene copies per liter")
+      sec.axis = sec_axis(~ . * beta + alpha, name = "SARS-CoV-2 viral load in wastewater\nin 10,000 gene copies per liter")
     ) +
     theme_trend() +
     scale_x_date(
@@ -921,7 +900,7 @@ plot_changes <- function(df = NULL) {
     # select relevant variables
     select(contains("loess"), kalenderwoche) %>%
     # rename variables
-    rename_with( ~ str_replace(., "_loess", ""), contains("_loess")) %>%
+    rename_with(~ str_replace(., "_loess", ""), contains("_loess")) %>%
     # reshape data
     gather(Indicator, FD, -kalenderwoche) %>%
     # drop NAs
@@ -1003,7 +982,8 @@ create_translation_factor_graph <- function(df = NULL) {
     ggplot() +
     geom_line(aes(kalenderwoche, UEF),
               color = colors_used_ugly_names["gw_sr"],
-              linewidth = 1.0,)  +
+              linewidth = 1.0,
+    )  +
     scale_x_date(
       date_breaks = "4 month",
       date_labels = "%b\n%y",

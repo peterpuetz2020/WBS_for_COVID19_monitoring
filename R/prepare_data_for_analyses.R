@@ -1,3 +1,4 @@
+# read in data
 df <- readRDS(here(data_here, "df_ready.rds"))
 
 # filter time series data such that all series have no missing values
