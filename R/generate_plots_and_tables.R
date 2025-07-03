@@ -45,6 +45,9 @@ save_confusion_matrix(df = historical_alignment_data, name = "table_1")
 # plot alignment over time (Figure 9)
 plot_correspondence_over_time(df = trend_data)
 
+# read in ml results
+ml_results <- readRDS(here(data_here, "ml_results.rds"))
+
 # inner cross-validation results for model selection (Table A3)
 save_inner_cv_results(results = ml_results)
 

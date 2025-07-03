@@ -60,4 +60,5 @@ ml_results <- compute_ml_models(df = trend_data,
                   avoid_overlap = 4,
                   seed = 1)
 
-
+# save ml results
+saveRDS(ml_results, here(data_here, "ml_results.rds"))
