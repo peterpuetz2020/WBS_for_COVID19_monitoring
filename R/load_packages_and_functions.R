@@ -441,7 +441,13 @@ plot_cc_pearson <- function(df = NULL,
         here(results_here_plots, paste0(figure_name, ".svg")),
         width = 16,
         height = 10,
-        units = "cm"
+        units = "cm", create.dir = TRUE
+      )
+      ggsave(
+        here(results_here_plots, paste0(figure_name, ".eps")),
+        width = 16,
+        height = 10,
+        units = "cm", create.dir = TRUE
       )
 }
 
@@ -516,7 +522,6 @@ plot_sld <- function(df = NULL) {
     ggplot() +
     geom_point(aes(days, w_agg_value)) +
     geom_line(aes(days, gam_value), linewidth = 1) +
-    theme_minimal() +
     theme_trend() +
     lims(y = c(0, 80)) +
     labs(x = "Days post symptom onset" , y = "Standardized viral load (in %)")
@@ -527,7 +532,13 @@ plot_sld <- function(df = NULL) {
     here(results_here_plots, "figure_3.svg"),
     width = 16,
     height = 10,
-    units = "cm"
+    units = "cm", create.dir = TRUE
+  )
+  ggsave(
+    here(results_here_plots, "figure_3.eps"),
+    width = 16,
+    height = 10,
+    units = "cm", create.dir = TRUE
   )
 }
 
@@ -624,7 +635,16 @@ plot_der_prevalence <- function(df = NULL)
       ),
       width = 16,
       height = 10,
-      units = "cm"
+      units = "cm", create.dir = TRUE
+    )
+    ggsave(
+      here(
+        results_here_plots,
+        paste0("figure_", figure_name, ".eps")
+      ),
+      width = 16,
+      height = 10,
+      units = "cm", create.dir = TRUE
     )
   }
 }
@@ -815,7 +835,14 @@ create_regression_graph <- function(df = NULL) {
     here(results_here_plots, paste0("figure_6.svg")),
     width = 16,
     height = 10,
-    units = "cm"
+    units = "cm", create.dir = TRUE
+  )
+  ggsave(
+    plot = p,
+    here(results_here_plots, paste0("figure_6.eps")),
+    width = 16,
+    height = 10,
+    units = "cm", create.dir = TRUE
   )
 }
 
@@ -885,7 +912,14 @@ plot_indicators <- function(df = NULL) {
     here(results_here_plots, paste0("figure_1.svg")),
     width = 16,
     height = 10,
-    units = "cm"
+    units = "cm", create.dir = TRUE
+  )
+  ggsave(
+    plot = plot_1,
+    here(results_here_plots, paste0("figure_1.eps")),
+    width = 16,
+    height = 10,
+    units = "cm", create.dir = TRUE
   )
 }
 
@@ -920,7 +954,7 @@ plot_changes <- function(df = NULL) {
     add_color_manual_ugly_names() +
     scale_y_continuous(labels = scales::percent) +
     guides(size = "none", color = guide_legend(title = "", override.aes =
-                                                 list(lwd = c(rep(0.8,4), 1.6))))
+                                                 list(lwd = c(rep(0.8,5)))))
   
   print(plot_ch)
   
@@ -930,7 +964,14 @@ plot_changes <- function(df = NULL) {
     here(results_here_plots, "figure_7.svg"),
     width = 16,
     height = 10,
-    units = "cm"
+    units = "cm", create.dir = TRUE
+  )
+  ggsave(
+    plot = plot_ch,
+    here(results_here_plots, "figure_7.eps"),
+    width = 16,
+    height = 10,
+    units = "cm", create.dir = TRUE
   )
 }
 
@@ -1021,7 +1062,14 @@ create_translation_factor_graph <- function(df = NULL) {
     here(results_here_plots, "figure_5.svg"),
     width = 16,
     height = 10,
-    units = "cm"
+    units = "cm", create.dir = TRUE
+  )
+  ggsave(
+    plot =  final_plot,
+    here(results_here_plots, "figure_5.eps"),
+    width = 16,
+    height = 10,
+    units = "cm", create.dir = TRUE
   )
 }
 
@@ -1089,7 +1137,14 @@ plot_correspondence_over_time <- function(df = NULL,
     here(results_here_plots, "figure_9.svg"),
     width = 16,
     height = 10,
-    units = "cm"
+    units = "cm", create.dir = TRUE
+  )
+  ggsave(
+    plot = p,
+    here(results_here_plots, "figure_9.eps"),
+    width = 16,
+    height = 10,
+    units = "cm", create.dir = TRUE
   )
 }
 
@@ -1100,24 +1155,40 @@ pred_measures <- function(ta = NULL) {
   hits <- sum(diag(ta))
   # overall accuracy = correct predictions / all observations
   overall_acc = hits / sum(ta)
-  # sensitivity and positive predictive value for decreases
-  decr_sens = diag(ta)["decreasing"] /
-    sum(ta[c("decreasing"), ])
-  decr_ppv = diag(ta)["decreasing"] /
-    sum(ta[, c("decreasing")])
-  # sensitivity and positive predictive value for increases
-  incr_sens = diag(ta)["increasing"] /
-    sum(ta[c("increasing"), ])
-  incr_ppv = diag(ta)["increasing"] /
-    sum(ta[, c("increasing")])
+  # specificity, sensitivity and positive / negative predictive value for decreases
+  TP <- diag(ta)["decreasing"]
+  FP <- sum(ta[, "decreasing"]) - TP
+  FN <- sum(ta["decreasing", ]) - TP
+  TN <- sum(ta) - TP - FP - FN
+  
+  decr_spec = TN / (TN + FP)
+  decr_sens = TP / (TP + FN)
+  decr_ppv = TP / (TP + FP)
+  decr_npv = TN / (TN + FN)
+  
+  #  specificity, sensitivity and positive / negative predictive value for increases
+  TP <- diag(ta)["increasing"]
+  FP <- sum(ta[, "increasing"]) - TP
+  FN <- sum(ta["increasing", ]) - TP
+  TN <- sum(ta) - TP - FP - FN
+  
+  incr_spec = TN / (TN + FP)
+  incr_sens = TP / (TP + FN)
+  incr_ppv = TP / (TP + FP)
+  incr_npv = TN / (TN + FN)
+  
   # return results
   return(
     data.frame(
       overall_acc,
       decr_sens,
+      decr_spec,
       decr_ppv,
+      decr_npv,
       incr_sens,
+      incr_spec,
       incr_ppv,
+      incr_npv,
       row.names = ""
     ) %>% t() %>% round(2)
   )
@@ -1174,16 +1245,24 @@ save_confusion_matrix <- function(df = NULL, name = NULL) {
     Metric = c(
       "Accuracy",
       "Decrease: Sensitivity",
+      "Decrease: Specificity",
       "Decrease: Positive Predictive Value",
+      "Decrease: Negative Predictive Value",
       "Increase: Sensitivity",
-      "Increase: Positive Predictive Value"
+      "Increase: Specificity",
+      "Increase: Positive Predictive Value",
+      "Increase: Negative Predictive Value"
     ),
     Value = c(
       round(measures["overall_acc", ], 2),
       round(measures["decr_sens", ], 2),
+      round(measures["decr_spec", ], 2),
       round(measures["decr_ppv", ], 2),
+      round(measures["decr_npv", ], 2),
       round(measures["incr_sens", ], 2),
-      round(measures["incr_ppv", ], 2)
+      round(measures["incr_spec", ], 2),
+      round(measures["incr_ppv", ], 2),
+      round(measures["incr_npv", ], 2)
     )
   )
   colnames(summary_stats) <- c("", "")

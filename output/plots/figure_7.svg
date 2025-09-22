@@ -104,7 +104,7 @@
 <rect x='301.09' y='255.23' width='17.28' height='17.28' style='stroke-width: 1.07; stroke: none; fill: #FFFFFF;' />
 <line x1='302.82' y1='263.87' x2='316.64' y2='263.87' style='stroke-width: 1.71; stroke: #009E73; stroke-linecap: butt;' />
 <rect x='378.01' y='255.23' width='17.28' height='17.28' style='stroke-width: 1.07; stroke: none; fill: #FFFFFF;' />
-<line x1='379.74' y1='263.87' x2='393.57' y2='263.87' style='stroke-width: 3.41; stroke: #E69F00; stroke-linecap: butt;' />
+<line x1='379.74' y1='263.87' x2='393.57' y2='263.87' style='stroke-width: 1.71; stroke: #E69F00; stroke-linecap: butt;' />
 <text x='77.74' y='267.84' style='font-size: 12.00px; font-family: "Times New Roman";' textLength='32.02px' lengthAdjust='spacingAndGlyphs'>GNS-I</text>
 <text x='138.00' y='267.84' style='font-size: 12.00px; font-family: "Times New Roman";' textLength='89.36px' lengthAdjust='spacingAndGlyphs'>PC-COVID-ARI-I</text>
 <text x='255.59' y='267.84' style='font-size: 12.00px; font-family: "Times New Roman";' textLength='40.02px' lengthAdjust='spacingAndGlyphs'>PS-SR-I</text>
