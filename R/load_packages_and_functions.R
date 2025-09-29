@@ -27,6 +27,7 @@ packages_to_load <- c(
   "zoo",
   "kableExtra",
   "xtable",
+  "here",
   "glmnet",
   "caret",
   "ranger",
@@ -1244,23 +1245,23 @@ save_confusion_matrix <- function(df = NULL, name = NULL) {
   summary_stats <- data.frame(
     Metric = c(
       "Accuracy",
-      "Decrease: Sensitivity",
       "Decrease: Specificity",
+      "Decrease: Sensitivity",
       "Decrease: Positive Predictive Value",
       "Decrease: Negative Predictive Value",
-      "Increase: Sensitivity",
       "Increase: Specificity",
+      "Increase: Sensitivity",
       "Increase: Positive Predictive Value",
       "Increase: Negative Predictive Value"
     ),
     Value = c(
       round(measures["overall_acc", ], 2),
-      round(measures["decr_sens", ], 2),
       round(measures["decr_spec", ], 2),
+      round(measures["decr_sens", ], 2),
       round(measures["decr_ppv", ], 2),
       round(measures["decr_npv", ], 2),
-      round(measures["incr_sens", ], 2),
       round(measures["incr_spec", ], 2),
+      round(measures["incr_sens", ], 2),
       round(measures["incr_ppv", ], 2),
       round(measures["incr_npv", ], 2)
     )
